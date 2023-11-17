@@ -1,0 +1,4 @@
+1. Use openCV to get video information from webcam
+2. Store this video information into database in byte format (using sqlite)
+3. Write function that reads information from database and puts this into 
+http response (may need to use openCV again to do this)

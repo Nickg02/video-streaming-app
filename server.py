@@ -1,5 +1,8 @@
 from flask import Flask, render_template, request, Response, send_file
 import os
+import sqlite3
+import camera
+import numpy as np
 
 app = Flask(__name__)
 
@@ -67,6 +70,34 @@ def get_video(video=DEFAULT_VIDEO_NAME):
     response.headers.add('Accept-Ranges', 'bytes')
     response.headers.add('Content-Type', 'video/mp4')
     return response
+
+def generate_frames_from_database():
+    conn = sqlite3.connect('video_frames.db')
+    cursor = conn.cursor()
+
+    cursor.execute('SELECT frame_data FROM frames')
+    rows = cursor.fetchall()
+
+    for row in rows:
+        frame_data = row[0]
+        frame = cv2.imdecode(np.frombuffer(frame_data, np.uint8), cv2.IMREAD_COLOR)
+
+        # Convert the frame to JPEG format for HTML response
+        ret, buffer = cv2.imencode('.jpg', frame)
+        frame_bytes = buffer.tobytes()
+
+        yield (b'--frame\r\n'
+               b'Content-Type: image/jpeg\r\n\r\n' + frame_bytes + b'\r\n')
+
+    conn.close()
+
+@app.route('/video_stream')
+def video_stream():
+    return Response(generate_frames_from_database(), mimetype='multipart/x-mixed-replace; boundary=frame')
+
+@app.route('/livestream_record')
+def record_stream():
+    return camera.capture
 
 def get_range_from_header(range_header, total_size):
     parts = range_header.replace('bytes=', '').split('-')
